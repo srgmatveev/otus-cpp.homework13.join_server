@@ -1,10 +1,12 @@
+
 #include <exception>
 #include <iostream>
 #include "utils.h"
 #include "join_server.h"
+
 int main(int argc, char const *argv[])
 {
-    try
+   try
     {
         if (argc != 2)
         {
