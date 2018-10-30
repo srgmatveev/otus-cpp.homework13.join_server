@@ -27,7 +27,7 @@ class ThreadPool
     {
         service.post(f);
     }
-
+    void hello(){}
     ~ThreadPool()
     {
         working.reset(); //allow run() to exit

@@ -20,8 +20,9 @@ public:
   using ptr = boost::shared_ptr<TalkToClient>;
 
 private:
+  using self_type = TalkToClient;
   using error_code = boost::system::error_code;
-  TalkToClient(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr) : sock_(io_service), tp_ptr_(tp_ptr),started_(false) {}
+  TalkToClient(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr) : io_service_(io_service), sock_(io_service), tp_ptr_(tp_ptr), started_(false) {}
 
 public:
   static auto new_(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr)
@@ -44,6 +45,13 @@ public:
     sock_.close();
   }
   auto &sock() { return sock_; }
+  void on_answer_from_server()
+  {
+    auto self = shared_from_this();
+    tp_ptr_->enqueue([self]() {
+    self->do_step();
+    });
+  }
   void do_step(const error_code &err = error_code(), size_t bytes = 0)
   {
     auto self = shared_from_this();
@@ -60,7 +68,7 @@ public:
           }
           self->stop();
         });
-
+        my_yield io_service_.post([self]() { self->on_answer_from_server(); });
         my_yield async_write(sock_, write_buffer_, [self](const error_code &err, size_t bytes) {
           if (!err)
           {
@@ -74,6 +82,7 @@ public:
   }
 
 private:
+  boost::asio::io_service &io_service_;
   ip::tcp::socket sock_;
   bool started_;
   streambuf read_buffer_;
