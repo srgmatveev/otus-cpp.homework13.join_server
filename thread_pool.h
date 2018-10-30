@@ -3,8 +3,8 @@
 #include <boost/thread/thread.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
-#include <boost/move/unique_ptr.hpp>
-typedef boost::movelib::unique_ptr<boost::asio::io_service::work> asio_worker;
+#include <memory>
+typedef std::unique_ptr<boost::asio::io_service::work> asio_worker;
 
 class ThreadPool
 {
