@@ -6,11 +6,16 @@
 #include <boost/make_shared.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/system/error_code.hpp>
 #include <iostream>
+#include <string>
+#include <exception>
 #include "yield.hpp"
 #include "thread_pool.h"
-
+static const std::string SUCCESS_CODE = "OK\n";
+static const std::string ERROR_CODE = "ERR";
 using namespace boost::asio;
+using namespace boost::system;
 #define MEM_FN2(x, y, z) boost::bind(&self_type::x, shared_from_this(), y, z)
 class TalkToClient : public boost::enable_shared_from_this<TalkToClient>,
                      coroutine,
@@ -48,8 +53,22 @@ public:
   void on_answer_from_server()
   {
     auto self = shared_from_this();
+
     tp_ptr_->enqueue([self]() {
-    self->do_step();
+      try
+      {
+        std::string read_str{""};
+        std::getline(std::istream(&self->read_buffer_), read_str);
+        std::ostream oss(&self->write_buffer_);
+        oss << SUCCESS_CODE << std::endl;
+        self->do_step();
+      }
+      catch (std::exception &e)
+      {
+        std::ostream oss(&self->write_buffer_);
+        oss << ERROR_CODE << " " << e.what() << std::endl;
+        self->do_step(errc::make_error_code(errc::state_not_recoverable));
+      }
     });
   }
   void do_step(const error_code &err = error_code(), size_t bytes = 0)
