@@ -23,7 +23,7 @@ set_target_properties(${MY_PROJECT_NAME}  PROPERTIES
         )
 target_link_libraries(${MY_PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 
-set(BUILD_TEST OFF)
+set(BUILD_TEST ON)
 if(${BUILD_TEST})
 enable_testing()
 include_directories(./)
