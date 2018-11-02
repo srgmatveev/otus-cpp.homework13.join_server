@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include <string>
 #include <map>
@@ -5,18 +6,15 @@
 #include <vector>
 #include <iterator>
 #include <memory>
+#include <shared_mutex>
 class Table
 {
     using pair_type = std::pair<int, std::string>;
-
-  private:
-    std::map<int, std::string> structure_;
-    std::string name_;
-
   public:
     Table(const std::string &str) : name_(str) {}
     bool insert(int a, const std::string &str)
     {
+        std::unique_lock<std::shared_mutex> lock(mutex_);
         auto it = structure_.find(a);
         if (it == structure_.cend())
         {
@@ -27,21 +25,30 @@ class Table
     }
     void truncate()
     {
+        std::unique_lock<std::shared_mutex> lock(mutex_);
         structure_.clear();
     }
     const std::string &get_name()
     {
+        std::shared_lock<std::shared_mutex> lock(mutex_);
         return name_;
     }
     void set_name(const std::string &str)
     {
+        std::unique_lock<std::shared_mutex> lock(mutex_);
         name_ = str;
     }
 
     auto &get_table()
     {
+        std::shared_lock<std::shared_mutex> lock(mutex_);
         return structure_;
     }
+
+  private:
+    std::map<int, std::string> structure_;
+    std::string name_;
+    std::shared_mutex mutex_;
 };
 
 class Database

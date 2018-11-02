@@ -12,8 +12,8 @@
 #include <exception>
 #include "yield.hpp"
 #include "thread_pool.h"
-static const std::string SUCCESS_CODE = "OK\n";
-static const std::string ERROR_CODE = "ERR";
+#include "database_cmds.hpp"
+#include "resources.h"
 using namespace boost::asio;
 using namespace boost::system;
 #define MEM_FN2(x, y, z) boost::bind(&self_type::x, shared_from_this(), y, z)
@@ -27,7 +27,9 @@ public:
 private:
   using self_type = TalkToClient;
   using error_code = boost::system::error_code;
-  TalkToClient(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr) : io_service_(io_service), sock_(io_service), tp_ptr_(tp_ptr), started_(false) {}
+  TalkToClient(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr) : io_service_(io_service),
+                                                                                            sock_(boost::make_shared<ip::tcp::socket>(io_service)), tp_ptr_(tp_ptr), started_(false),
+                                                                                            db_cmds_ptr{boost::make_shared<DB_Cmds>(sock_)} {}
 
 public:
   static auto new_(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr)
@@ -47,9 +49,9 @@ public:
     if (!started_)
       return;
     started_ = false;
-    sock_.close();
+    sock_->close();
   }
-  auto &sock() { return sock_; }
+  auto &sock() { return *sock_; }
   void on_answer_from_server()
   {
     auto self = shared_from_this();
@@ -57,10 +59,19 @@ public:
     tp_ptr_->enqueue([self]() {
       try
       {
+        bool result{false};
         std::string read_str{""};
         std::getline(std::istream(&self->read_buffer_), read_str);
+        result = self->db_cmds_ptr->run_cmd(read_str);
         std::ostream oss(&self->write_buffer_);
-        oss << SUCCESS_CODE << std::endl;
+        if (result)
+        {
+          oss << SUCCESS_CODE << std::endl;
+        }
+        else
+        {
+          oss << ERROR_CODE << std::endl;
+        }
         self->do_step();
       }
       catch (std::exception &e)
@@ -79,7 +90,7 @@ public:
       for (;;)
       {
 
-        my_yield async_read_until(sock_, read_buffer_, "\n", [self](const error_code &err, size_t bytes) {
+        my_yield async_read_until(*sock_, read_buffer_, "\n", [self](const error_code &err, size_t bytes) {
           if (!err)
           {
             self->do_step();
@@ -88,7 +99,7 @@ public:
           self->stop();
         });
         my_yield io_service_.post([self]() { self->on_answer_from_server(); });
-        my_yield async_write(sock_, write_buffer_, [self](const error_code &err, size_t bytes) {
+        my_yield async_write(*sock_, write_buffer_, [self](const error_code &err, size_t bytes) {
           if (!err)
           {
             self->do_step();
@@ -102,11 +113,12 @@ public:
 
 private:
   boost::asio::io_service &io_service_;
-  ip::tcp::socket sock_;
+  boost::shared_ptr<ip::tcp::socket> sock_;
   bool started_;
   streambuf read_buffer_;
   streambuf write_buffer_;
   boost::shared_ptr<ThreadPool> tp_ptr_{nullptr};
+  boost::shared_ptr<DB_Cmds> db_cmds_ptr{nullptr};
 };
 
 class JoinServer : public boost::enable_shared_from_this<JoinServer>, boost::noncopyable
