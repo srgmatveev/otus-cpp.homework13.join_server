@@ -29,7 +29,7 @@ private:
   using error_code = boost::system::error_code;
   TalkToClient(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr) : io_service_(io_service),
                                                                                             sock_(boost::make_shared<ip::tcp::socket>(io_service)), tp_ptr_(tp_ptr), started_(false),
-                                                                                            db_cmds_ptr{boost::make_shared<DB_Cmds>(sock_)} {}
+                                                                                            db_cmds_ptr{boost::make_shared<DB_Cmds>(write_buffer_)} {}
 
 public:
   static auto new_(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr)
@@ -65,13 +65,10 @@ public:
         result = self->db_cmds_ptr->run_cmd(read_str);
         std::ostream oss(&self->write_buffer_);
         if (result)
-        {
           oss << SUCCESS_CODE << std::endl;
-        }
         else
-        {
-          oss << ERROR_CODE << std::endl;
-        }
+          oss << "";
+
         self->do_step();
       }
       catch (std::exception &e)

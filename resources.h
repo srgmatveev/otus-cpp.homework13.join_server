@@ -1,5 +1,5 @@
 #pragma once
-static const std::string SUCCESS_CODE = "OK\n";
+static const std::string SUCCESS_CODE = "OK";
 static const std::string ERROR_CODE = "ERR";
 
 class Cmd_Enum_Map
