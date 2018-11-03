@@ -12,6 +12,7 @@
 class Table
 {
     using pair_type = std::pair<int, std::string>;
+    using vect_def = std::vector<std::string>;
 
   public:
     Table(const std::string &str) : name_(str) {}
@@ -31,7 +32,7 @@ class Table
         std::unique_lock<std::shared_mutex> lock(mutex_);
         structure_.clear();
     }
-    using vect_def = std::vector<std::string>;
+
     void intersection(const Table &other, boost::shared_ptr<vect_def> answer_ptr)
     {
         std::shared_lock<std::shared_mutex> lock(mutex_);
@@ -59,6 +60,49 @@ class Table
                 answer_ptr->emplace_back(ss.str());
                 ++first1;
                 ++first2;
+            }
+        }
+    }
+
+    const std::string add_sym_diff_str(int id, const std::string str1, const std::string str2)
+    {
+        std::stringstream ss;
+        ss << id << "," << str1 << "," << str2;
+        return ss.str();
+    }
+    void sym_diff(const Table &other, boost::shared_ptr<vect_def> answer_ptr)
+    {
+        std::shared_lock<std::shared_mutex> lock(mutex_);
+        auto it_A = std::cbegin(structure_);
+        auto lim_A = std::cend(structure_);
+        auto it_B = std::cbegin(other.structure_);
+        auto lim_B = std::cend(other.structure_);
+        while (!(it_A == lim_A && it_B == lim_B))
+        {
+            if (it_A == lim_A)
+            {
+                answer_ptr->emplace_back(add_sym_diff_str(it_B->first, "", it_B->second));
+                ++it_B;
+            }
+            else if (it_B == lim_B)
+            {
+                answer_ptr->emplace_back(add_sym_diff_str(it_A->first, it_A->second, ""));
+                ++it_A;
+            }
+            else if (it_A->first < it_B->first)
+            {
+                answer_ptr->emplace_back(add_sym_diff_str(it_A->first, it_A->second, ""));
+                ++it_A;
+            }
+            else if (it_B->first < it_A->first)
+            {
+                answer_ptr->emplace_back(add_sym_diff_str(it_B->first, "", it_B->second));
+                ++it_B;
+            }
+            else
+            {
+                ++it_A;
+                ++it_B;
             }
         }
     }

@@ -140,13 +140,33 @@ class DB_Cmds : boost::noncopyable
     }
     bool sym_diff()
     {
+        using vect_def = std::vector<std::string>;
+        vect_def answer;
+        boost::shared_ptr<vect_def> answer_ptr = boost::make_shared<vect_def>(answer);
         std::ostream out(&write_);
         if (cmds.size() != 1)
         {
             out << ERROR_CODE << " Bad format SYMMETRIC_DIFFERENCE table command." << std::endl;
             return false;
         }
-        return false;
+        auto tblA = Database::Instance().getTable("A");
+        if (!tblA)
+        {
+            out << ERROR_CODE << " Table A doesn't exist." << std::endl;
+            return false;
+        }
+        auto tblB = Database::Instance().getTable("B");
+        if (!tblB)
+        {
+            out << ERROR_CODE << " Table B doesn't exist." << std::endl;
+            return false;
+        }
+        tblA->sym_diff(*tblB, answer_ptr);
+        for (auto &item : *answer_ptr)
+        {
+            out << item << std::endl;
+        }
+        return true;
     }
     streambuf &write_;
     std::vector<std::string> cmds;
