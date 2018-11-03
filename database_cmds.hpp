@@ -1,7 +1,6 @@
 #pragma once
 #include <boost/asio.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
 #include <vector>
@@ -32,9 +31,21 @@ class DB_Cmds : boost::noncopyable
                 return truncate();
                 break;
             }
+            case static_cast<int>(Cmd::INTERSECTION):
+            {
+                return intersect();
+                break;
+            }
+            case static_cast<int>(Cmd::SYMMETRIC_DIFFERENCE):
+            {
+                return sym_diff();
+                break;
+            }
             default:
+            {
                 return unknown_command();
                 break;
+            }
             }
         }
         return false;
@@ -93,6 +104,48 @@ class DB_Cmds : boost::noncopyable
     {
         std::ostream out(&write_);
         out << ERROR_CODE << " Unknown command." << std::endl;
+        return false;
+    }
+    bool intersect()
+    {
+        using vect_def = std::vector<std::string>;
+        vect_def answer;
+        boost::shared_ptr<vect_def> answer_ptr = boost::make_shared<vect_def>(answer);
+        std::ostream out(&write_);
+        if (cmds.size() != 1)
+        {
+            out << ERROR_CODE << " Bad format INTERSECTION table command." << std::endl;
+            return false;
+        }
+        auto tblA = Database::Instance().getTable("A");
+        if (!tblA)
+        {
+            out << ERROR_CODE << " Table A doesn't exist." << std::endl;
+            return false;
+        }
+        auto tblB = Database::Instance().getTable("B");
+        if (!tblB)
+        {
+            out << ERROR_CODE << " Table B doesn't exist." << std::endl;
+            return false;
+        }
+
+        tblA->intersection(*tblB, answer_ptr);
+        for (auto &item : *answer_ptr)
+        {
+            out << item << std::endl;
+        }
+
+        return true;
+    }
+    bool sym_diff()
+    {
+        std::ostream out(&write_);
+        if (cmds.size() != 1)
+        {
+            out << ERROR_CODE << " Bad format SYMMETRIC_DIFFERENCE table command." << std::endl;
+            return false;
+        }
         return false;
     }
     streambuf &write_;

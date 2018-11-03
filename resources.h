@@ -24,6 +24,8 @@ class Cmd_Enum_Map
     {
         cmd_map["INSERT"] = 1;
         cmd_map["TRUNCATE"] = 2;
+        cmd_map["INTERSECTION"] = 3;
+        cmd_map["SYMMETRIC_DIFFERENCE"] = 4;
     }
     std::map<std::string, int> cmd_map;
 };
@@ -32,4 +34,6 @@ enum class Cmd
 {
     INSERT = 1,
     TRUNCATE,
+    INTERSECTION,
+    SYMMETRIC_DIFFERENCE,
 };

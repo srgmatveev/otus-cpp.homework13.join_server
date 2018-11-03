@@ -7,9 +7,12 @@
 #include <iterator>
 #include <memory>
 #include <shared_mutex>
+#include <boost/shared_ptr.hpp>
+#include <sstream>
 class Table
 {
     using pair_type = std::pair<int, std::string>;
+
   public:
     Table(const std::string &str) : name_(str) {}
     bool insert(int a, const std::string &str)
@@ -27,6 +30,37 @@ class Table
     {
         std::unique_lock<std::shared_mutex> lock(mutex_);
         structure_.clear();
+    }
+    using vect_def = std::vector<std::string>;
+    void intersection(const Table &other, boost::shared_ptr<vect_def> answer_ptr)
+    {
+        std::shared_lock<std::shared_mutex> lock(mutex_);
+        std::stringstream ss;
+        auto first1 = std::cbegin(structure_);
+        auto last1 = std::cend(structure_);
+        auto first2 = std::cbegin(other.structure_);
+        auto last2 = std::cend(other.structure_);
+        while (first1 != last1 && first2 != last2)
+        {
+            if (first1->first < first2->first)
+            {
+                ++first1;
+            }
+            else if (first2->first < first1->first)
+            {
+                ++first2;
+            }
+            else
+            {
+                ss.str("");
+                ss.clear();
+                ss << first1->first << ",";
+                ss << first1->second << "," << first2->second;
+                answer_ptr->emplace_back(ss.str());
+                ++first1;
+                ++first2;
+            }
+        }
     }
     const std::string &get_name()
     {
