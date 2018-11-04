@@ -5,7 +5,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 
 function(test name)
   #add_executable (${name} run_test.cpp tables_test.cpp)
-  add_executable (${name} run_test.cpp tables_test.cpp)
+  add_executable (${name} run_test.cpp tables_test.cpp join_server_test.cpp)
   target_link_libraries(${name} ${GTEST_BOTH_LIBRARIES})
   target_link_libraries(${name} ${GMOCK_BOTH_LIBRARIES})
   target_link_libraries(${name} ${CMAKE_THREAD_LIBS_INIT})
