@@ -14,9 +14,12 @@
 #include "thread_pool.h"
 #include "database_cmds.h"
 #include "resources.h"
+
 using namespace boost::asio;
 using namespace boost::system;
+
 #define MEM_FN2(x, y, z) boost::bind(&self_type::x, shared_from_this(), y, z)
+#define MEM_FN3(x, y, w, z) boost::bind(&self_type::x, shared_from_this(), y, w, z)
 class TalkToClient : public boost::enable_shared_from_this<TalkToClient>,
                      coroutine,
                      boost::noncopyable
@@ -51,11 +54,19 @@ public:
     started_ = false;
     sock_->close();
   }
+  ~TalkToClient()
+  {
+    stop();
+  }
   auto &sock() { return *sock_; }
   void on_answer_from_server()
   {
     auto self = shared_from_this();
-
+    if (!tp_ptr_)
+    {
+      self->do_step();
+      return;
+    }
     tp_ptr_->enqueue([self]() {
       try
       {
@@ -140,8 +151,13 @@ public:
     if (isStarted_)
       return;
     isStarted_ = true;
-    TalkToClient::ptr client = TalkToClient::new_(io_service, tp_ptr);
+    auto self = shared_from_this();
+
+    TalkToClient::ptr client = TalkToClient::new_(self->io_service, self->tp_ptr);
     acceptor.async_accept(client->sock(), MEM_FN2(handle_accept, client, _1));
+    boost::asio::signal_set signals(io_service, SIGINT, SIGTERM);
+    signals.async_wait(MEM_FN3(handler,
+                               boost::ref(signals), _1, _2));
     io_service.run();
   }
   void stop()
@@ -152,14 +168,28 @@ public:
     io_service.stop();
   }
 
-  ~JoinServer() { stop(); }
+  ~JoinServer()
+  {
+    stop();
+  }
 
 private:
   void handle_accept(TalkToClient::ptr client, const error_code &err)
   {
+    auto self = shared_from_this();
     client->start();
-    auto new_client = TalkToClient::new_(io_service, tp_ptr);
+    auto new_client = TalkToClient::new_(self->io_service, self->tp_ptr);
     acceptor.async_accept(new_client->sock(), MEM_FN2(handle_accept, new_client, _1));
+  }
+
+  void handler(boost::asio::signal_set &this_, const error_code &error, int signal_number)
+  {
+    if (tp_ptr)
+    {
+      tp_ptr->stop();
+    }
+    stop();
+    return;
   }
   boost::asio::io_service io_service;
   ip::tcp::acceptor acceptor;

@@ -3,13 +3,12 @@
 #include <boost/thread/thread.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
-#include <memory>
-typedef std::unique_ptr<boost::asio::io_service::work> asio_worker;
 
 class ThreadPool
 {
+typedef std::unique_ptr<boost::asio::io_service::work> asio_worker;
   public:
-    ThreadPool(std::size_t threads) : service(), working(new asio_worker::element_type(service))
+    ThreadPool(std::size_t threads) : service(), working(new asio_worker::element_type(service)),is_running(true)
     {
         while (threads--)
         {
@@ -18,24 +17,33 @@ class ThreadPool
         }
     }
 
-  static auto createPool(std::size_t threads){
-      boost::shared_ptr<ThreadPool> tp = boost::make_shared<ThreadPool>(threads);
-      return tp;
-  }
+    static auto createPool(std::size_t threads)
+    {
+        return boost::make_shared<ThreadPool>(threads);
+    }
     template <class F>
     void enqueue(F f)
     {
         service.post(f);
     }
-    void hello(){}
+    void stop()
+    {
+      
+        if (!is_running)
+            return;
+            is_running = false;
+        working.reset(); //allow run() to exit
+        service.stop();
+        g.join_all();
+        
+    }
     ~ThreadPool()
     {
-        working.reset(); //allow run() to exit
-        g.join_all();
-        service.stop();
+        stop();
     }
 
   private:
+    bool is_running{false};
     boost::asio::io_service service; //< the io_service we are wrapping
     asio_worker working;
     boost::thread_group g; //< need to keep track of threads so we can join them

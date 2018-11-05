@@ -6,7 +6,7 @@
 
 int main(int argc, char const *argv[])
 {
-   try
+    try
     {
         if (argc != 2)
         {
@@ -27,5 +27,5 @@ int main(int argc, char const *argv[])
         std::cerr << e.what() << std::endl;
     }
 
-   return 0;
+    return 0;
 }
