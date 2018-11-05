@@ -3,7 +3,7 @@
 #include <iostream>
 #include "utils.h"
 #include "join_server.h"
-
+#include <boost/asio.hpp>
 int main(int argc, char const *argv[])
 {
     try
@@ -19,7 +19,8 @@ int main(int argc, char const *argv[])
             return 1;
         }
         unsigned short port_number = std::atoi(argv[1]);
-        auto server_ptr = JoinServer::createServer(port_number);
+        boost::asio::io_service io_service;
+        auto server_ptr = JoinServer::createServer(port_number, io_service);
         server_ptr->start();
     }
     catch (std::exception &e)

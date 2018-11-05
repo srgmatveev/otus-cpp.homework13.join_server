@@ -30,14 +30,16 @@ public:
 private:
   using self_type = TalkToClient;
   using error_code = boost::system::error_code;
-  TalkToClient(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr) : io_service_(io_service),
-                                                                                            sock_(boost::make_shared<ip::tcp::socket>(io_service)), tp_ptr_(tp_ptr), started_(false),
-                                                                                            db_cmds_ptr{boost::make_shared<DB_Cmds>(write_buffer_)} {}
+  TalkToClient(boost::asio::io_service &io_service_, boost::shared_ptr<ThreadPool> tp_ptr) : io_service(io_service_),
+                                                                                             sock_(boost::make_shared<ip::tcp::socket>(io_service)), tp_ptr_(tp_ptr), started_(false),
+                                                                                             db_cmds_ptr{boost::make_shared<DB_Cmds>(write_buffer_)}
+  {
+  }
 
 public:
-  static auto new_(boost::asio::io_service &io_service, boost::shared_ptr<ThreadPool> tp_ptr)
+  static auto new_(boost::asio::io_service &io_service_, boost::shared_ptr<ThreadPool> tp_ptr)
   {
-    ptr new_(new TalkToClient(io_service, tp_ptr));
+    ptr new_(new TalkToClient(io_service_, tp_ptr));
     return new_;
   }
   void start()
@@ -106,7 +108,7 @@ public:
           }
           self->stop();
         });
-        my_yield io_service_.post([self]() { self->on_answer_from_server(); });
+        my_yield io_service.post([self]() { self->on_answer_from_server(); });
         my_yield async_write(*sock_, write_buffer_, [self](const error_code &err, size_t bytes) {
           if (!err)
           {
@@ -120,7 +122,7 @@ public:
   }
 
 private:
-  boost::asio::io_service &io_service_;
+  boost::asio::io_service &io_service;
   boost::shared_ptr<ip::tcp::socket> sock_;
   bool started_;
   streambuf read_buffer_;
@@ -136,36 +138,35 @@ private:
   using error_code = boost::system::error_code;
 
 public:
-  JoinServer(unsigned short port_number) : io_service(), acceptor(io_service, ip::tcp::endpoint{ip::tcp::v4(), port_number}), isStarted_(false)
+  JoinServer(unsigned short port_number, boost::asio::io_service &io_service) : io_service_(io_service),
+                                                                                acceptor_(io_service, ip::tcp::endpoint{ip::tcp::v4(), port_number}), isStarted_(false)
   {
     std::size_t max_threads{0};
     max_threads = boost::thread::hardware_concurrency() ? boost::thread::hardware_concurrency() : 1;
     tp_ptr = ThreadPool::createPool(max_threads);
   }
-  static auto createServer(unsigned short port_number)
+  static auto createServer(unsigned short port_number, boost::asio::io_service &io_service__)
   {
-    return boost::make_shared<JoinServer>(port_number);
+    return boost::make_shared<JoinServer>(port_number, io_service__);
   }
   void start()
   {
     if (isStarted_)
       return;
     isStarted_ = true;
-    auto self = shared_from_this();
-
-    TalkToClient::ptr client = TalkToClient::new_(self->io_service, self->tp_ptr);
-    acceptor.async_accept(client->sock(), MEM_FN2(handle_accept, client, _1));
-    boost::asio::signal_set signals(io_service, SIGINT, SIGTERM);
+    TalkToClient::ptr client = TalkToClient::new_(io_service_, tp_ptr);
+    acceptor_.async_accept(client->sock(), MEM_FN2(handle_accept, client, _1));
+    boost::asio::signal_set signals(io_service_, SIGINT);
     signals.async_wait(MEM_FN3(handler,
                                boost::ref(signals), _1, _2));
-    io_service.run();
+    io_service_.run();
   }
   void stop()
   {
     if (!isStarted_)
       return;
     isStarted_ = false;
-    io_service.stop();
+    io_service_.stop();
   }
 
   ~JoinServer()
@@ -176,10 +177,10 @@ public:
 private:
   void handle_accept(TalkToClient::ptr client, const error_code &err)
   {
-    auto self = shared_from_this();
-    client->start();
-    auto new_client = TalkToClient::new_(self->io_service, self->tp_ptr);
-    acceptor.async_accept(new_client->sock(), MEM_FN2(handle_accept, new_client, _1));
+    if (!err)
+      client->start();
+    auto new_client = TalkToClient::new_(io_service_, tp_ptr);
+    acceptor_.async_accept(new_client->sock(), MEM_FN2(handle_accept, new_client, _1));
   }
 
   void handler(boost::asio::signal_set &this_, const error_code &error, int signal_number)
@@ -191,8 +192,8 @@ private:
     stop();
     return;
   }
-  boost::asio::io_service io_service;
-  ip::tcp::acceptor acceptor;
+  boost::asio::io_service &io_service_;
+  ip::tcp::acceptor acceptor_;
   bool isStarted_;
   boost::shared_ptr<ThreadPool> tp_ptr{nullptr};
 };

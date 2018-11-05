@@ -6,13 +6,14 @@
 
 class ThreadPool
 {
-typedef std::unique_ptr<boost::asio::io_service::work> asio_worker;
+    typedef std::unique_ptr<boost::asio::io_service::work> asio_worker;
+
   public:
-    ThreadPool(std::size_t threads) : service(), working(new asio_worker::element_type(service)),is_running(true)
+    ThreadPool(std::size_t threads) : service_(), working(new asio_worker::element_type(service_)), is_running(true)
     {
         while (threads--)
         {
-            auto worker = boost::bind(&boost::asio::io_service::run, &(this->service));
+            auto worker = boost::bind(&boost::asio::io_service::run, &service_);
             g.add_thread(new boost::thread(worker));
         }
     }
@@ -24,18 +25,17 @@ typedef std::unique_ptr<boost::asio::io_service::work> asio_worker;
     template <class F>
     void enqueue(F f)
     {
-        service.post(f);
+        service_.post(f);
     }
     void stop()
     {
-      
+
         if (!is_running)
             return;
-            is_running = false;
+        is_running = false;
         working.reset(); //allow run() to exit
-        service.stop();
+        service_.stop();
         g.join_all();
-        
     }
     ~ThreadPool()
     {
@@ -44,7 +44,7 @@ typedef std::unique_ptr<boost::asio::io_service::work> asio_worker;
 
   private:
     bool is_running{false};
-    boost::asio::io_service service; //< the io_service we are wrapping
+    boost::asio::io_service service_; //< the io_service we are wrapping
     asio_worker working;
     boost::thread_group g; //< need to keep track of threads so we can join them
 };
